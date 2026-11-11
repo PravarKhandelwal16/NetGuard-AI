@@ -1,0 +1,103 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Frontend & Node dependencies
+node_modules/
+frontend/node_modules/
+.npm
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist/
+frontend/dist/
+build/
+out/
+.vite/
+frontend/.vite/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Large Model Weights & Checkpoints
+*.pt
+*.pth
+*.bin
+*.onnx
+*.h5
+*.keras
+*.joblib
+*.pkl
+core/models/weights/*
+!core/models/weights/.gitkeep
+backend/models/*.pt
+backend/models/*.pth
+
+# Telemetry & Large Raw Datasets
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+*.csv.gz
+*.parquet
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE & Editor Settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs & Temporary Files
+*.log
+logs/
+temp/
+tmp/
+
+# Others
+PROJECT_DESCRIPTION.md 
+*.bat
+run.ps1
+run.sh
+*.ipynb

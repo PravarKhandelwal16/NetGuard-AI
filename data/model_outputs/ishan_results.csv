@@ -1,0 +1,6 @@
+Model,Accuracy,Precision,Recall,F1-Score,FPR,TP,FP,FN,TN
+Logistic Regression,1.0,1.0,1.0,1.0,0.0,46,0,0,179
+Decision Tree,0.9867,0.9574,0.9783,0.9677,0.0112,45,2,1,177
+Multi-Signal + Fixed Threshold,1.0,1.0,1.0,1.0,0.0,46,0,0,179
+Multi-Signal + Original Adaptive,1.0,1.0,1.0,1.0,0.0,46,0,0,179
+Multi-Signal + Stabilized Adaptive,1.0,1.0,1.0,1.0,0.0,46,0,0,179

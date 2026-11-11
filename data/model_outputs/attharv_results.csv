@@ -1,0 +1,6 @@
+Model,Accuracy,Precision,Recall,F1-Score,FPR,TP,FP,FN,TN
+Random Forest,1.0,1.0,1.0,1.0,0.0,46,0,0,179
+XGBoost,1.0,1.0,1.0,1.0,0.0,46,0,0,179
+Isolation Forest,1.0,1.0,1.0,1.0,0.0,46,0,0,179
+Standard Autoencoder,1.0,1.0,1.0,1.0,0.0,46,0,0,179
+Multi-Signal + Fixed Threshold,1.0,1.0,1.0,1.0,0.0,46,0,0,179
