@@ -119,7 +119,6 @@ export const SinglePageDashboard: React.FC = () => {
   const [alpha, setAlpha] = useState(0.5);
   const [baseThreshold, setBaseThreshold] = useState(32.77);
   const [engineMode, setEngineMode] = useState<'stabilized' | 'rolling_mad' | 'fixed'>('stabilized');
-  const [compareRunaway, setCompareRunaway] = useState(true);
 
   // Telemetry & Alerts State
   const [history, setHistory] = useState<LiveProbeItem[]>([]);
@@ -245,10 +244,11 @@ export const SinglePageDashboard: React.FC = () => {
       score: item.score,
       threshold: item.threshold,
       threshold_stabilized: item.threshold_stabilized ?? item.threshold,
-      threshold_rolling_mad: item.threshold_rolling_mad ?? item.threshold,
       threshold_fixed: item.threshold_fixed ?? baseThreshold,
       adaptation_status: item.adaptation_status,
       latency: item.latency_ms,
+      jitter: item.jitter_ms,
+      baseline_latency: item.baseline_latency_ms,
       status: item.status_code,
       is_anomaly: item.is_anomaly,
       severity: item.severity,
@@ -740,234 +740,266 @@ export const SinglePageDashboard: React.FC = () => {
           </div>
         </section>
 
-        {/* Real-Time Telemetry & Anomaly Score Chart */}
-        <section className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-stone-100">
-            <div>
-              <h2 className="text-lg font-bold text-stone-900 flex items-center space-x-2">
-                <span>Real-Time Anomaly Score vs Self-Tuning Threshold</span>
-              </h2>
-              <p className="text-xs text-stone-500">
-                Multi-signal telemetry fusion (S_t = &alpha; &middot; latency_delta + (1-&alpha;) &middot; jitter_drift). Live threshold &tau;_t adapts to legitimate traffic drift.
-              </p>
-            </div>
-
-            {/* Threshold Method & Sensitivity Slider */}
-            <div className="flex flex-wrap items-center gap-3 text-xs">
+        {/* Dual Live Charts: Anomaly Score vs Threshold (Left) & Network Latency / Jitter Telemetry (Right) */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Chart 1: Real-Time Anomaly Score vs Self-Tuning Threshold */}
+          <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm space-y-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
               <div className="flex items-center space-x-2">
-                <span className="text-stone-500">Sensitivity &alpha;:</span>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="0.9"
-                  step="0.1"
-                  value={alpha}
-                  onChange={(e) => setAlpha(parseFloat(e.target.value))}
-                  className="w-20 accent-rose-500 cursor-pointer"
-                />
-                <span className="font-mono font-bold text-stone-700">{alpha.toFixed(1)}</span>
+                <Activity className="w-4 h-4 text-blue-600" />
+                <h2 className="text-sm font-bold text-stone-900">
+                  Anomaly Score vs Self-Tuning Threshold
+                </h2>
               </div>
-
-              {/* Dynamic Threshold Engine Selector */}
-              <div className="flex items-center space-x-1 bg-stone-100 p-0.5 rounded-xl border border-stone-200">
-                <button
-                  type="button"
-                  onClick={() => setEngineMode('stabilized')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                    engineMode === 'stabilized'
-                      ? 'bg-amber-500 text-stone-950 shadow-xs'
-                      : 'text-stone-600 hover:text-stone-900'
-                  }`}
-                  title="Bounded Clamping + Attack Quarantine + Smoothing (Prevents Runaway)"
-                >
-                  Stabilized Adaptive
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEngineMode('rolling_mad')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                    engineMode === 'rolling_mad'
-                      ? 'bg-purple-600 text-white shadow-xs'
-                      : 'text-stone-600 hover:text-stone-900'
-                  }`}
-                  title="Naive Rolling MAD: Suffers Threshold Runaway during sustained attacks"
-                >
-                  Rolling MAD
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEngineMode('fixed')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                    engineMode === 'fixed'
-                      ? 'bg-stone-800 text-white shadow-xs'
-                      : 'text-stone-600 hover:text-stone-900'
-                  }`}
-                  title="Rigid Static Threshold: Cannot adapt to natural network variance"
-                >
-                  Fixed Baseline
-                </button>
+              <div className="flex items-center space-x-1.5 bg-amber-50 border border-amber-200 rounded-lg px-2 py-0.5 text-amber-800 text-[11px] font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>Self-Adapting Threshold</span>
               </div>
-
-              {/* Runaway Comparison Toggle */}
-              {engineMode === 'stabilized' && (
-                <label className="flex items-center space-x-1.5 cursor-pointer text-stone-600 select-none bg-stone-50 border border-stone-200 px-2 py-1 rounded-lg hover:bg-stone-100">
-                  <input
-                    type="checkbox"
-                    checked={compareRunaway}
-                    onChange={(e) => setCompareRunaway(e.target.checked)}
-                    className="accent-purple-600 rounded cursor-pointer"
-                  />
-                  <span className="font-medium text-[11px]">Compare Runaway (Rolling MAD)</span>
-                </label>
-              )}
             </div>
-          </div>
 
-          {/* Recharts Live Line Graph */}
-          <div className="h-72 w-full pt-2">
-            {chartData.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400 bg-stone-50/50 rounded-xl border border-dashed border-stone-200">
-                <Activity className="w-8 h-8 text-stone-300 mb-2" />
-                <p className="text-sm font-semibold text-stone-700">Telemetry Stream Inactive</p>
-                <p className="text-xs text-stone-500 mt-1 max-w-sm">
-                  Choose a target website above and click &ldquo;Start Reading &amp; Detecting&rdquo; to plot live anomaly scores and dynamic thresholds.
-                </p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                  <XAxis
-                    dataKey="step"
-                    tick={{ fontSize: 10, fill: '#78716C' }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#E7E5E4' }}
-                  />
-                  <YAxis
-                    domain={[0, 'auto']}
-                    tick={{ fontSize: 10, fill: '#78716C' }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#E7E5E4' }}
-                  />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                          <div className="bg-[#1C1917] text-white p-3 rounded-xl shadow-xl text-xs border border-stone-700 space-y-1">
-                            <div className="font-bold flex items-center justify-between space-x-3">
-                              <span>{data.step}</span>
-                              <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                  data.is_anomaly
-                                    ? 'bg-rose-500 text-white'
-                                    : 'bg-emerald-500 text-stone-950'
-                                }`}
-                              >
-                                {data.is_anomaly ? 'ANOMALY DETECTED' : 'NOMINAL'}
-                              </span>
+            {/* Recharts Live Line Graph 1 */}
+            <div className="h-64 w-full pt-1">
+              {chartData.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400 bg-stone-50/50 rounded-xl border border-dashed border-stone-200">
+                  <Activity className="w-7 h-7 text-stone-300 mb-2" />
+                  <p className="text-xs font-semibold text-stone-700">Telemetry Stream Inactive</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5 max-w-xs">
+                    Choose a target above and click &ldquo;Start Reading &amp; Detecting&rdquo; to plot live anomaly scores and dynamic thresholds.
+                  </p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
+                    <XAxis
+                      dataKey="step"
+                      tick={{ fontSize: 9, fill: '#78716C' }}
+                      tickLine={false}
+                      axisLine={{ stroke: '#E7E5E4' }}
+                    />
+                    <YAxis
+                      domain={[0, 'auto']}
+                      tick={{ fontSize: 9, fill: '#78716C' }}
+                      tickLine={false}
+                      axisLine={{ stroke: '#E7E5E4' }}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-[#1C1917] text-white p-2.5 rounded-xl shadow-xl text-xs border border-stone-700 space-y-1">
+                              <div className="font-bold flex items-center justify-between space-x-3">
+                                <span>{data.step}</span>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                    data.is_anomaly
+                                      ? 'bg-rose-500 text-white'
+                                      : 'bg-emerald-500 text-stone-950'
+                                  }`}
+                                >
+                                  {data.is_anomaly ? 'ANOMALY' : 'NOMINAL'}
+                                </span>
+                              </div>
+                              <div>Score: <span className="font-mono text-blue-300 font-bold">{data.score.toFixed(2)}</span></div>
+                              <div>Threshold (τ): <span className="font-mono text-amber-300 font-bold">{data.threshold.toFixed(2)}</span></div>
+                              {data.adaptation_status && (
+                                <div className="text-[10px] text-emerald-400 font-medium">{data.adaptation_status}</div>
+                              )}
+                              <div className="text-[10px] text-stone-400 pt-1 border-t border-stone-700">
+                                {data.threat}
+                              </div>
                             </div>
-                            <div>Score: <span className="font-mono text-amber-300 font-bold">{data.score.toFixed(2)}</span></div>
-                            <div>Active Threshold: <span className="font-mono text-stone-300 font-bold">{data.threshold.toFixed(2)}</span></div>
-                            {compareRunaway && data.threshold_rolling_mad !== undefined && (
-                              <div>Rolling MAD τ: <span className="font-mono text-purple-300">{data.threshold_rolling_mad.toFixed(2)}</span></div>
-                            )}
-                            {data.adaptation_status && (
-                              <div className="text-[10px] text-emerald-400 font-semibold">{data.adaptation_status}</div>
-                            )}
-                            <div>Latency: <span className="font-mono text-blue-300 font-bold">{data.latency} ms</span></div>
-                            <div>Status: <span className="font-mono text-stone-200 font-bold">{data.status}</span></div>
-                            <div className="text-[11px] text-stone-400 pt-1 border-t border-stone-700">
-                              {data.threat}
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
+                          );
+                        }
+                        return null;
+                      }}
+                    />
 
-                  {/* Active Adaptive Threshold Line */}
-                  <Line
-                    type="monotone"
-                    dataKey="threshold"
-                    stroke="#F59E0B"
-                    strokeWidth={2}
-                    strokeDasharray="4 4"
-                    dot={false}
-                    isAnimationActive={false}
-                    name="Active Threshold (τ)"
-                  />
-
-                  {/* Runaway Rolling MAD Reference Line (Demonstrating Runaway vs Stabilized) */}
-                  {compareRunaway && engineMode === 'stabilized' && (
+                    {/* Self-Tuning Dynamic Threshold Line */}
                     <Line
                       type="monotone"
-                      dataKey="threshold_rolling_mad"
-                      stroke="#A855F7"
-                      strokeWidth={1.8}
-                      strokeDasharray="2 2"
+                      dataKey="threshold"
+                      stroke="#F59E0B"
+                      strokeWidth={2}
+                      strokeDasharray="4 4"
                       dot={false}
                       isAnimationActive={false}
-                      name="Rolling MAD (Runaway Risk)"
+                      name="Threshold (τ)"
                     />
-                  )}
 
-                  {/* Composite Anomaly Score Line */}
-                  <Line
-                    type="monotone"
-                    dataKey="score"
-                    stroke="#3B82F6"
-                    strokeWidth={2.5}
-                    dot={(props: any) => {
-                      const { cx, cy, payload } = props;
-                      if (payload && payload.is_anomaly) {
-                        return (
-                          <circle
-                            key={`dot-${cx}-${cy}`}
-                            cx={cx}
-                            cy={cy}
-                            r={5.5}
-                            fill="#EF4444"
-                            stroke="#FFFFFF"
-                            strokeWidth={2}
-                            className="animate-pulse"
-                          />
-                        );
-                      }
-                      return null;
-                    }}
-                    isAnimationActive={false}
-                    name="Anomaly Score (S)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between text-xs text-stone-500 pt-2 border-t border-stone-100 gap-2">
-            <div className="flex flex-wrap items-center gap-4">
-              <span className="flex items-center space-x-1.5">
-                <span className="w-3 h-0.5 bg-blue-500" />
-                <span>Multi-Signal Score (S_t)</span>
-              </span>
-              <span className="flex items-center space-x-1.5">
-                <span className="w-3 h-0.5 bg-amber-500 border-dashed" />
-                <span>Active Dynamic Threshold (&tau;_t)</span>
-              </span>
-              {compareRunaway && engineMode === 'stabilized' && (
-                <span className="flex items-center space-x-1.5">
-                  <span className="w-3 h-0.5 bg-purple-500 border-dotted" />
-                  <span>Unbounded Rolling MAD (Demonstrates Runaway)</span>
-                </span>
+                    {/* Anomaly Score Line */}
+                    <Line
+                      type="monotone"
+                      dataKey="score"
+                      stroke="#3B82F6"
+                      strokeWidth={2.2}
+                      dot={(props: any) => {
+                        const { cx, cy, payload } = props;
+                        if (payload && payload.is_anomaly) {
+                          return (
+                            <circle
+                              key={`dot-${cx}-${cy}`}
+                              cx={cx}
+                              cy={cy}
+                              r={5}
+                              fill="#EF4444"
+                              stroke="#FFFFFF"
+                              strokeWidth={2}
+                              className="animate-pulse"
+                            />
+                          );
+                        }
+                        return null;
+                      }}
+                      isAnimationActive={false}
+                      name="Anomaly Score (S)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               )}
-              <span className="flex items-center space-x-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                <span>Anomalous Burst / Attack Spike</span>
+            </div>
+
+            {/* Chart 1 Legend */}
+            <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-500 pt-2 border-t border-stone-100 gap-2">
+              <div className="flex items-center space-x-3">
+                <span className="flex items-center space-x-1.5">
+                  <span className="w-3 h-0.5 bg-blue-500" />
+                  <span>Score (S)</span>
+                </span>
+                <span className="flex items-center space-x-1.5">
+                  <span className="w-3 h-0.5 bg-amber-500 border-dashed" />
+                  <span>Threshold (τ)</span>
+                </span>
+                <span className="flex items-center space-x-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span>Anomaly Spike</span>
+                </span>
+              </div>
+              <span className="text-[10px] text-stone-400">
+                {isMonitoring ? 'Streaming live' : 'Standby'}
               </span>
             </div>
-            <span>
-              {isMonitoring ? 'Streaming live probes' : 'Standby mode (select options above)'}
-            </span>
+          </div>
+
+          {/* Chart 2: Parallel Live Network Latency & Jitter Telemetry */}
+          <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm space-y-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+              <div className="flex items-center space-x-2">
+                <Server className="w-4 h-4 text-emerald-600" />
+                <h2 className="text-sm font-bold text-stone-900">
+                  Live Network Latency &amp; Jitter Telemetry
+                </h2>
+              </div>
+              <div className="flex items-center space-x-2 text-[11px] font-mono text-stone-600">
+                <span>Ping: <strong className="text-stone-900">{latestProbe ? `${latestProbe.latency_ms}ms` : '--'}</strong></span>
+                <span>•</span>
+                <span>Jitter: <strong className="text-purple-600">{latestProbe ? `±${latestProbe.jitter_ms}ms` : '--'}</strong></span>
+              </div>
+            </div>
+
+            {/* Recharts Live Line Graph 2 */}
+            <div className="h-64 w-full pt-1">
+              {chartData.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400 bg-stone-50/50 rounded-xl border border-dashed border-stone-200">
+                  <Server className="w-7 h-7 text-stone-300 mb-2" />
+                  <p className="text-xs font-semibold text-stone-700">Network Telemetry Inactive</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5 max-w-xs">
+                    Real-time ping, rolling baseline, and millisecond packet jitter will stream here.
+                  </p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
+                    <XAxis
+                      dataKey="step"
+                      tick={{ fontSize: 9, fill: '#78716C' }}
+                      tickLine={false}
+                      axisLine={{ stroke: '#E7E5E4' }}
+                    />
+                    <YAxis
+                      domain={[0, 'auto']}
+                      tick={{ fontSize: 9, fill: '#78716C' }}
+                      tickLine={false}
+                      axisLine={{ stroke: '#E7E5E4' }}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-[#1C1917] text-white p-2.5 rounded-xl shadow-xl text-xs border border-stone-700 space-y-1">
+                              <div className="font-bold flex items-center justify-between space-x-3">
+                                <span>{data.step}</span>
+                                <span className="font-mono text-emerald-300 font-bold">{data.latency} ms</span>
+                              </div>
+                              <div>Baseline Median: <span className="font-mono text-stone-300">{data.baseline_latency ?? '--'} ms</span></div>
+                              <div>Packet Jitter: <span className="font-mono text-purple-300">±{data.jitter ?? 0} ms</span></div>
+                              <div>HTTP Status: <span className="font-mono text-stone-200 font-bold">{data.status}</span></div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+
+                    {/* Median Baseline Latency Reference */}
+                    <Line
+                      type="monotone"
+                      dataKey="baseline_latency"
+                      stroke="#94A3B8"
+                      strokeWidth={1.5}
+                      strokeDasharray="3 3"
+                      dot={false}
+                      isAnimationActive={false}
+                      name="Baseline (Median)"
+                    />
+
+                    {/* Live Ping Latency */}
+                    <Line
+                      type="monotone"
+                      dataKey="latency"
+                      stroke="#10B981"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={false}
+                      name="Latency (ms)"
+                    />
+
+                    {/* Jitter Line */}
+                    <Line
+                      type="monotone"
+                      dataKey="jitter"
+                      stroke="#A855F7"
+                      strokeWidth={1.8}
+                      dot={false}
+                      isAnimationActive={false}
+                      name="Jitter (ms)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* Chart 2 Legend */}
+            <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-500 pt-2 border-t border-stone-100 gap-2">
+              <div className="flex items-center space-x-3">
+                <span className="flex items-center space-x-1.5">
+                  <span className="w-3 h-0.5 bg-emerald-500" />
+                  <span>Live Ping (ms)</span>
+                </span>
+                <span className="flex items-center space-x-1.5">
+                  <span className="w-3 h-0.5 bg-purple-500" />
+                  <span>Jitter (ms)</span>
+                </span>
+                <span className="flex items-center space-x-1.5">
+                  <span className="w-3 h-0.5 bg-slate-400 border-dashed" />
+                  <span>Baseline Median</span>
+                </span>
+              </div>
+              <span className="text-[10px] text-stone-400">
+                Target: {selectedTarget.replace(/^https?:\/\//, '')}
+              </span>
+            </div>
           </div>
         </section>
 
